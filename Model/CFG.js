@@ -43,7 +43,25 @@ export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
         return newListOfGenerativeSymbols
     }
 
+    function getListOfReachableSymbols() {
+        let oldListOfReachableSymbols = []
+        let newListOfReachableSymbols = [startSymbol]
+
+        while (newListOfReachableSymbols.length !== oldListOfReachableSymbols.length) {
+            oldListOfReachableSymbols = [...newListOfReachableSymbols]
+            oldListOfReachableSymbols.filter(symbol => nonTerminals.includes(symbol)).forEach(symbol => {
+                let setOfReachableSymbols = new Set()
+                productions[symbol].forEach(production => {
+                    production.forEach(symbol1 => setOfReachableSymbols.add(symbol1))
+                })
+                newListOfReachableSymbols = [...(new Set([...oldListOfReachableSymbols, ...newListOfReachableSymbols, ...setOfReachableSymbols]))]
+            })
+        }
+        return newListOfReachableSymbols
+    }
+
     function reduceToChomskyNormalForm() {
+        // removing non-generative symbols
         const newNonTerminals = getListOfGenerativeSymbols()
         const listOfNongenerativeSymbols = nonTerminals.filter(symbol => !newNonTerminals.includes(symbol))
         const newAlphabet = new Set()
@@ -60,7 +78,17 @@ export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
             }
             if (newProductions[symbol].length === 0) delete newProductions[symbol]
         }
-        return CFG(newNonTerminals, [...newAlphabet], newProductions, startSymbol)
+
+        // removing non-reachable symbols
+        const listOfReachableSymbols = getListOfReachableSymbols()
+        Object.keys(newProductions).forEach(symbol => {
+            if (!listOfReachableSymbols.includes(symbol)) delete newProductions[symbol]
+        })
+
+        return CFG(newNonTerminals.filter(symbol => listOfReachableSymbols.includes(symbol)),
+            [...newAlphabet].filter(symbol => listOfReachableSymbols.includes(symbol)),
+            newProductions,
+            startSymbol)
     }
 
     function containsWord(word) {
@@ -74,6 +102,7 @@ export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
     return {
         print,
         getListOfGenerativeSymbols,
+        getListOfReachableSymbols,
         reduceToChomskyNormalForm,
         containsWord,
         generateTree
