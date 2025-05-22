@@ -9,5 +9,8 @@
   "type": "module",
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "js-combinatorics": "^2.1.2"
+  }
 }
