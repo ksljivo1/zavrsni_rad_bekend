@@ -78,7 +78,7 @@ export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
         let oldListOfGenerativeSymbols = []
         let newListOfGenerativeSymbols = nonTerminals.filter(symbol => {
             for (const production of productions[symbol]) {
-                if (production.every(symbol1 => [...alphabet, "ε"].includes(symbol1))) {
+                if (production.every(symbol1 => [...alphabet, EPSILON].includes(symbol1))) {
                     return true
                 }
             }
@@ -129,8 +129,7 @@ export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
         return newListOfEmptySymbols
     }
 
-    function reduceToChomskyNormalForm() {
-        // removing non-generative symbols
+    function removeNonGenerativeSymbols(nonTerminals, alphabet, productions, startSymbol) {
         const newNonTerminals = getListOfGenerativeSymbols()
         const listOfNongenerativeSymbols = nonTerminals.filter(symbol => !newNonTerminals.includes(symbol))
         const newAlphabet = new Set()
@@ -138,8 +137,7 @@ export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
         for (const symbol of newNonTerminals) {
             newProductions[symbol] = []
             for (const production of productions[symbol]) {
-                let acceptRule = true
-                if (production.some(symbol1 => listOfNongenerativeSymbols.includes(symbol1))) acceptRule = false
+                const acceptRule = !production.some(symbol1 => listOfNongenerativeSymbols.includes(symbol1))
                 if (acceptRule) {
                     newProductions[symbol].push(production)
                     production.filter(symbol1 => alphabet.includes(symbol1)).forEach(symbol1 => newAlphabet.add(symbol1))
@@ -147,47 +145,55 @@ export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
             }
             if (newProductions[symbol].length === 0) delete newProductions[symbol]
         }
+        return CFG(newNonTerminals, newAlphabet, newProductions, startSymbol)
+    }
 
-        // removing non-reachable symbols
+    function removeNonReachableSymbols(nonTerminals, alphabet, productions, startSymbol) {
         const listOfReachableSymbols = getListOfReachableSymbols()
-        Object.keys(newProductions).forEach(symbol => {
-            if (!listOfReachableSymbols.includes(symbol)) delete newProductions[symbol]
+        Object.keys(productions).forEach(symbol => {
+            if (!listOfReachableSymbols.includes(symbol)) delete productions[symbol]
         })
 
-        const newGrammar = CFG(newNonTerminals.filter(symbol => listOfReachableSymbols.includes(symbol)),
-            [...newAlphabet].filter(symbol => listOfReachableSymbols.includes(symbol)),
-            newProductions,
+        return CFG(nonTerminals.filter(symbol => listOfReachableSymbols.includes(symbol)),
+            [...alphabet].filter(symbol => listOfReachableSymbols.includes(symbol)),
+            productions,
             startSymbol)
+    }
 
-        // below is logic for removing epsilon productions
-
-        const newestListOfProductions = newGrammar.getProductions()
-        const newestStartSymbol = newGrammar.getStartSymbol()
-        const newestAlphabet = newGrammar.getAlphabet()
-        const newestNonTerminals = newGrammar.getNonTerminals()
-        const listOfEmptySymbols = newGrammar.getListOfEmptySymbols()
-
-        for (const symbol of newestNonTerminals) {
-            let newProductions = []
-                newestListOfProductions[symbol].forEach(production => {
-                    if (production.length === 1 && [...newestAlphabet, EPSILON].includes(production[0])) newProductions.push(production)
-                    else newProductions.push(...removeEpsilonFromProduction(production, listOfEmptySymbols))
-                })
-
-            newestListOfProductions[symbol] = newProductions
-        }
-
+    function getListOfDirectEpsilonProductions(listOfEmptySymbols, listOfProductions, nonTerminals) {
         let listOfDirectEpsilonProductions = listOfEmptySymbols
-            .filter(production => newestListOfProductions[production].length === 1 && newestListOfProductions[production][0].length === 1
-                    && newestListOfProductions[production][0][0] === EPSILON)
+            .filter(production => listOfProductions[production].length === 1 && listOfProductions[production][0].length === 1
+                && listOfProductions[production][0][0] === EPSILON)
 
         let oldListOfDirectEpsilonProductions = []
         while (listOfDirectEpsilonProductions.length !== oldListOfDirectEpsilonProductions.length) {
             oldListOfDirectEpsilonProductions = [...listOfDirectEpsilonProductions]
-            listOfDirectEpsilonProductions = [...(new Set([...listOfDirectEpsilonProductions, ...newestNonTerminals.filter(symbol =>
-                 productions[symbol].every(production => production.every(symbol => oldListOfDirectEpsilonProductions.includes(symbol)))
+            listOfDirectEpsilonProductions = [...(new Set([...listOfDirectEpsilonProductions, ...nonTerminals.filter(symbol =>
+                productions[symbol].every(production => production.every(symbol => oldListOfDirectEpsilonProductions.includes(symbol)))
             )]))]
         }
+
+        return listOfDirectEpsilonProductions
+    }
+
+    function removeEpsilonProductions(grammar) {
+        const newestListOfProductions = grammar.getProductions()
+        const newestStartSymbol = grammar.getStartSymbol()
+        const newestAlphabet = grammar.getAlphabet()
+        const newestNonTerminals = grammar.getNonTerminals()
+        const listOfEmptySymbols = grammar.getListOfEmptySymbols()
+
+        for (const symbol of newestNonTerminals) {
+            let newProductions = []
+            newestListOfProductions[symbol].forEach(production => {
+                if (production.length === 1 && [...newestAlphabet, EPSILON].includes(production[0])) newProductions.push(production)
+                else newProductions.push(...removeEpsilonFromProduction(production, listOfEmptySymbols))
+            })
+
+            newestListOfProductions[symbol] = newProductions
+        }
+
+        let listOfDirectEpsilonProductions = getListOfDirectEpsilonProductions(listOfEmptySymbols, newestListOfProductions, newestNonTerminals)
 
         for (const symbol of newestNonTerminals) {
             let newProductions = []
@@ -198,13 +204,93 @@ export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
             newestListOfProductions[symbol] = removeDuplicateProductions(newProductions)
         }
 
+        let newNonTerminals = []
         for (const symbol of newestNonTerminals) {
             if (newestListOfProductions[symbol].length === 0) delete newestListOfProductions[symbol]
+            else newNonTerminals.push(symbol)
         }
 
-        if (listOfEmptySymbols.includes(newestStartSymbol)) newestListOfProductions[newestStartSymbol].push(["ε"])
+        if (listOfEmptySymbols.includes(newestStartSymbol)) newestListOfProductions[newestStartSymbol].push([EPSILON])
 
-        return newestListOfProductions;
+        return { newestListOfProductions, newNonTerminals };
+    }
+
+    function unit(symbol, productions, nonTerminals) {
+        let oldListOfUnitProductions = []
+        let newListOfUnitProductions = [symbol]
+
+        while (newListOfUnitProductions.length !== oldListOfUnitProductions.length) {
+            oldListOfUnitProductions = [...newListOfUnitProductions]
+            oldListOfUnitProductions.forEach(symbol => {
+                const newSymbol = productions[symbol].filter(production => production.length === 1 && nonTerminals.includes(production[0]))
+                if (newSymbol.length !== 0) newListOfUnitProductions.push(...newSymbol.flat())
+                newListOfUnitProductions = removeDuplicateProductions(newListOfUnitProductions)
+            })
+        }
+
+        return newListOfUnitProductions
+    }
+
+    function removeUnitProductions(grammar) {
+        const newestListOfProductions = grammar.getProductions()
+        const newestStartSymbol = grammar.getStartSymbol()
+        const newestAlphabet = grammar.getAlphabet()
+        const newestNonTerminals = grammar.getNonTerminals()
+
+        const additionalProductions = {}
+
+        newestNonTerminals.forEach(symbol => {
+            const unitProductions = unit(symbol, newestListOfProductions, newestNonTerminals)
+            if (unitProductions.length > 1) {
+                const newProductions = []
+                unitProductions.forEach(unitProduction => {
+                    if (unitProduction !== symbol) {
+                        const newThing = productions[unitProduction].filter(production => production.length !== 1
+                            || (production.length === 1 && newestAlphabet.includes(...production.flat())))
+                        if (newThing.length !== 0) newProductions.push(...newThing)
+                    }
+                })
+                additionalProductions[symbol] = removeDuplicateProductions(newProductions)
+            }
+        })
+
+        Object.keys(additionalProductions).forEach(symbol => {
+            newestListOfProductions[symbol].push(...additionalProductions[symbol])
+            newestListOfProductions[symbol] = removeDuplicateProductions(newestListOfProductions[symbol])
+
+            newestListOfProductions[symbol] = newestListOfProductions[symbol].filter(production => {
+                return !(production.length === 1 && unit(symbol, newestListOfProductions, newestNonTerminals).includes(...production))}
+            )
+        })
+
+        return CFG(newestNonTerminals, newestAlphabet, newestListOfProductions, newestStartSymbol)
+    }
+
+    function reduceToChomskyNormalForm() {
+        // removing non-generative symbols
+        const grammarWithoutNonGenerativeSymbols = removeNonGenerativeSymbols(nonTerminals, alphabet, productions, startSymbol)
+
+        // removing non-reachable symbols
+        const grammarWithoutNonReachableSymbols = removeNonReachableSymbols(grammarWithoutNonGenerativeSymbols.getNonTerminals(),
+            grammarWithoutNonGenerativeSymbols.getAlphabet(), grammarWithoutNonGenerativeSymbols.getProductions(), grammarWithoutNonGenerativeSymbols.getStartSymbol())
+
+        // removing epsilon productions
+        const { newestListOfProductions, newNonTerminals } = removeEpsilonProductions(grammarWithoutNonReachableSymbols)
+
+        const grammarWithoutEpsilonProductions = CFG(newNonTerminals, [...grammarWithoutNonGenerativeSymbols.getAlphabet()],
+            newestListOfProductions, grammarWithoutNonGenerativeSymbols.getStartSymbol())
+
+        // removing unit productions
+        const grammarWithoutUnitProductions = removeUnitProductions(grammarWithoutEpsilonProductions)
+
+        // removal of unit productions might result with useless productions
+        const grammarWithoutUnitAndNonGenerativeProductions = grammarWithoutUnitProductions.removeNonGenerativeSymbols(grammarWithoutUnitProductions.getNonTerminals(),
+            grammarWithoutUnitProductions.getAlphabet(), grammarWithoutUnitProductions.getProductions(), grammarWithoutUnitProductions.getStartSymbol())
+
+        return grammarWithoutUnitAndNonGenerativeProductions.removeNonReachableSymbols(
+            grammarWithoutUnitAndNonGenerativeProductions.getNonTerminals(), grammarWithoutUnitAndNonGenerativeProductions.getAlphabet(),
+            grammarWithoutUnitAndNonGenerativeProductions.getProductions(), grammarWithoutUnitAndNonGenerativeProductions.getStartSymbol()
+        )
     }
 
     function containsWord(word) {
@@ -227,6 +313,10 @@ export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
         getListOfEmptySymbols,
         containsWord,
         generateTree,
-        removeEpsilonFromProduction
+        removeEpsilonFromProduction,
+        unit,
+        removeUnitProductions,
+        removeNonReachableSymbols,
+        removeNonGenerativeSymbols
     }
 }

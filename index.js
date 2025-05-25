@@ -1,31 +1,32 @@
 import CFG from "./Model/CFG.js"
 
-const N = ["S", "A", "B", "C", "D", "E"]
-const sigma = ["a", "b", "c", "d"]
+const N = ["S", "X", "Y", "Z", "M", "N"]
+const sigma = ["a", "b"]
 const P = {
     "S": [
-        ["A", "B", "C", "D"], ["E"]
+        ["X", "Y"]
     ],
-    "A": [
-         ["a"], ["ε"]
+    "X": [
+        ["a"]
     ],
-    "B": [
-        ["b"], ["c"]
+    "Y": [
+        ["Z"], ["b"]
     ],
-    "C": [
-        ["b"], ["ε"]
+    "Z": [
+        ["M"]
     ],
-    "D": [
-        ["a"], ["b"]
+    "M": [
+        ["N"]
     ],
-    "E": [
-        ["a"], ["d"], ["ε"]
+    "N": [
+        ["a"]
     ]
 }
 
 const S = "S"
 
 const grammar = CFG(N, sigma, P, S)
-console.log(grammar.reduceToChomskyNormalForm())
+
+grammar.reduceToChomskyNormalForm().print()
 
 
