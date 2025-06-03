@@ -287,10 +287,71 @@ export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
         const grammarWithoutUnitAndNonGenerativeProductions = grammarWithoutUnitProductions.removeNonGenerativeSymbols(grammarWithoutUnitProductions.getNonTerminals(),
             grammarWithoutUnitProductions.getAlphabet(), grammarWithoutUnitProductions.getProductions(), grammarWithoutUnitProductions.getStartSymbol())
 
-        return grammarWithoutUnitAndNonGenerativeProductions.removeNonReachableSymbols(
+        const newestOfNewestGrammars =  grammarWithoutUnitAndNonGenerativeProductions.removeNonReachableSymbols(
             grammarWithoutUnitAndNonGenerativeProductions.getNonTerminals(), grammarWithoutUnitAndNonGenerativeProductions.getAlphabet(),
             grammarWithoutUnitAndNonGenerativeProductions.getProductions(), grammarWithoutUnitAndNonGenerativeProductions.getStartSymbol()
         )
+
+        // reduction to Chomsky normal form
+        const productionsPrime = {}
+
+        newestOfNewestGrammars.getNonTerminals().forEach(symbol => {
+            const thiss = newestOfNewestGrammars.getProductions()[symbol]
+                .filter(production => (production.length === 1 && newestOfNewestGrammars.getAlphabet().includes(production[0])) ||
+                    production.length === 2 && production.every(symbol1 => newestOfNewestGrammars.getNonTerminals().includes(symbol1)))
+            if (thiss.length !== 0) productionsPrime[symbol] = thiss
+        })
+
+        const constructNewProductions = {}
+
+
+        const listOfProductionsPrime = Object.values(productionsPrime).reduce((acc, production) => [...acc, ...production], [])
+
+        let newestOfNewestOfProductions = {}
+
+        newestOfNewestGrammars.getNonTerminals().forEach(symbol => {
+            const newProductions = []
+            newestOfNewestGrammars.getProductions()[symbol].forEach(production => {
+                if (!listOfProductionsPrime.some(production1 => production.every(symbol => production1.includes(symbol)))) {
+                    newProductions.push(production.map(symbol => {
+                        if (newestOfNewestGrammars.getAlphabet().includes(symbol)) {
+                            constructNewProductions['REPLACEMENT_FOR_' + symbol] = [[symbol]]
+                            return 'REPLACEMENT_FOR_' + symbol
+                        }
+                        return symbol
+                    }))
+                } else {
+                    newProductions.push(production)
+                }
+            })
+            newestOfNewestOfProductions[symbol] = newProductions
+        })
+
+        const newestOfNewestOfNonTerminals = [...newestOfNewestGrammars.getNonTerminals(), ...Object.keys(constructNewProductions)]
+        newestOfNewestOfProductions = {...newestOfNewestOfProductions, ...constructNewProductions}
+
+        /// ovo treba jos razraditi
+        const replacementProductions = {}
+        newestOfNewestOfNonTerminals.forEach((symbol, i) => {
+            replacementProductions[symbol] = []
+            newestOfNewestOfProductions[symbol].forEach((production, j) => {
+                if (production.length >= 3) {
+                    let k
+                    for (k = 0; k < production.length - 2; k++) {
+                        if (k > 0) replacementProductions['D_' + i + '_' + j + '_' + (k - 1)] = []
+                        k === 0 ? replacementProductions[symbol].push([production[k], 'D_' + i + '_' + j + '_' + k]) :
+                            replacementProductions['D_' + i + '_' + j + '_' + (k - 1)].push([production[k], 'D_' + i + '_' + j + '_' + (k)])
+                    }
+                    replacementProductions['D_' + i + '_' + j + '_' + (k - 1)] = []
+                    replacementProductions['D_' + i + '_' + j + '_' + (k - 1)].push([production[k], production[k + 1]])
+                } else {
+                    replacementProductions[symbol].push(production)
+                }
+            })
+        })
+
+
+        return CFG([...Object.keys(replacementProductions)], newestOfNewestGrammars.getAlphabet(), replacementProductions, newestOfNewestGrammars.getStartSymbol())
     }
 
     function containsWord(word) {
