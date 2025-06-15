@@ -354,14 +354,6 @@ export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
         return CFG([...Object.keys(replacementProductions)], newestOfNewestGrammars.getAlphabet(), replacementProductions, newestOfNewestGrammars.getStartSymbol())
     }
 
-    function containsWord(word) {
-        return word
-    }
-
-    function generateTree(word) {
-        return word
-    }
-
     return {
         print,
         getAlphabet,
@@ -372,8 +364,6 @@ export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
         getListOfReachableSymbols,
         reduceToChomskyNormalForm,
         getListOfEmptySymbols,
-        containsWord,
-        generateTree,
         removeEpsilonFromProduction,
         unit,
         removeUnitProductions,

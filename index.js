@@ -1,16 +1,20 @@
 import CFG from "./Model/CFG.js"
+import Parse from "./Model/Parse.js"
 
-const N = ["S", "A", "B"]
-const sigma = ["a", "b", "c"]
+const N = ["S", "A", "B", "C"]
+const sigma = ["a", "b"]
 const P = {
     "S": [
-        ["A", "B", "a"]
+        ["A", "B"], ["B", "C"]
     ],
     "A": [
-        ["a", "a", "b"]
+        ["B", "A"], ["a"]
     ],
     "B": [
-        ["A", "c"]
+        ["C", "C"], ["b"]
+    ],
+    "C": [
+        ["A", "B"], ["a"]
     ]
 }
 
@@ -18,4 +22,6 @@ const S = "S"
 
 const grammar = CFG(N, sigma, P, S)
 
-grammar.reduceToChomskyNormalForm().print()
+const parse = Parse("bb", grammar)
+
+console.log(parse.wordIsGeneratedByGrammar())
