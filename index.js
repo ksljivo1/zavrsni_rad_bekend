@@ -18,10 +18,22 @@ const P = {
     ]
 }
 
+// const N = ["S"]
+// const sigma = ["a", "b"]
+// const P = {
+//     "S": [
+//         ["b", "S", "b"], ["a"]
+//     ]
+// }
+
 const S = "S"
 
 const grammar = CFG(N, sigma, P, S)
 
-const parse = Parse("bb", grammar)
+const parse = Parse("baaba", grammar)
 
-console.log(parse.wordIsGeneratedByGrammar())
+// console.log(parse.wordIsGeneratedByGrammar())
+
+// grammar.reduceToChomskyNormalForm().print()
+
+console.dir(parse.getGenerativeTree(), { depth: null });
