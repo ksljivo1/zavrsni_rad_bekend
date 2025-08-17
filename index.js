@@ -1,27 +1,27 @@
-import CFG from './Model/CFG.js';
-import Parse from './Model/Parse.js';
+import CFG from './controllers/CFG.js';
+import express from 'express';
+import Parse from './controllers/Parse.js';
+const app = express();
+const port = 3000;
 
-const N = ['S', 'A', 'B', 'C', 'D'];
-const sigma = ['a', 'b', 'c'];
-const P = {
-  S: [
-    ['A', 'B'],
-    ['B', 'C'],
-  ],
-  A: [['B', 'A'], ['a']],
-  B: [['C', 'C'], ['b']],
-  C: [['A', 'B'], ['a']],
-  D: [['c']],
-};
+app.use(express.json());
 
-const S = 'S';
+let grammar;
 
-const grammar = CFG(N, sigma, P, S);
+app.post('/grammar', (req, res) => {
+  const { nonTerminals, alphabet, productions, startSymbol } = req.body;
+  grammar = CFG(nonTerminals, alphabet, productions, startSymbol);
+  res.status(200).json('Grammar created successfully!');
+});
 
-const parse = Parse('baaba', grammar);
+app.post('/parseTree', (req, res) => {
+  try {
+    res.status(200).json(Parse(req.body.word, grammar).getGenerativeTree());
+  } catch (e) {
+    res.status(400).json({ error: e });
+  }
+});
 
-// console.log(parse.wordIsGeneratedByGrammar())
-
-grammar.reduceToChomskyNormalForm().print();
-
-console.dir(parse.getGenerativeTree(), { depth: null });
+app.listen(port, () => {
+  console.log(`Listening on port ${port}`);
+});

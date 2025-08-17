@@ -15,6 +15,22 @@ function removeDuplicateProductions(arr) {
 }
 
 export default function CFG(nonTerminals, alphabet, productions, startSymbol) {
+  // Object.values(productions).forEach((production) => {
+  //   production.forEach((productionRule) => {
+  //     productionRule.forEach((symbol) => {
+  //       if (!alphabet.includes(symbol) && !nonTerminals.includes(symbol)) {
+  //         throw 'Some production rules contain symbols on the right side that are not listed neither in alphabet nor non-terminals';
+  //       }
+  //     });
+  //   });
+  // });
+  //
+  // Object.keys(productions).forEach((nonTerminal) => {
+  //   if (!nonTerminals.includes(nonTerminal)) {
+  //     throw 'Some production rules contain symbols on the left side that are not listed neither in non-terminals';
+  //   }
+  // });
+
   function removeEpsilonFromProduction(production, epsProductions) {
     const countOfEpsProductions = production.filter((symbol) =>
       epsProductions.includes(symbol)
